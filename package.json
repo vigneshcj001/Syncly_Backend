@@ -1,0 +1,21 @@
+{
+  "name": "syncly_backend",
+  "version": "1.0.0",
+  "description": "Backend for Syncly",
+  "keywords": [
+    "NodeJS",
+    "Express",
+    "MongoDB"
+  ],
+  "license": "ISC",
+  "author": "Vigneshwaran.C.J",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

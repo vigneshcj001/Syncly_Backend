@@ -8,21 +8,16 @@ const networkRouter = express.Router();
 const SAFE_PROFILE_FIELDS =
   "user userName emailID avatar bio skills interests location stack mentorshipRole";
 
-// GET: Pending requests
+// ------------------- GET PENDING SWIPES SENT BY USER -------------------
 networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
   try {
-    const userId = req.user._id;
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * limit;
+    const loggedInUserId = req.user._id;
 
     const pendingSwipes = await Swipe.find({
-      recipientID: userId,
-      connectionStatus: "interested",
+      initiatorID: loggedInUserId,
+      connectionStatus: "Vibe",
     })
-      .skip(skip)
-      .limit(limit)
-      .populate({ path: "initiatorID", select: "userName emailID" })
+      .populate({ path: "recipientID", select: "userName emailID" })
       .lean();
 
     if (!pendingSwipes.length) {
@@ -33,16 +28,16 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
       });
     }
 
-    const initiatorIDs = pendingSwipes.map((s) => s.initiatorID._id);
-    const initiatorProfiles = await Profile.find({
-      user: { $in: initiatorIDs },
+    const recipientIDs = pendingSwipes.map((s) => s.recipientID._id);
+    const recipientProfiles = await Profile.find({
+      user: { $in: recipientIDs },
     })
       .select(SAFE_PROFILE_FIELDS)
       .lean();
 
-    const responseData = initiatorProfiles.map((profile) => {
+    const responseData = recipientProfiles.map((profile) => {
       const swipe = pendingSwipes.find(
-        (s) => s.initiatorID._id.toString() === profile.user.toString()
+        (s) => s.recipientID._id.toString() === profile.user.toString()
       );
       return { ...profile, swipeRequestId: swipe?._id };
     });
@@ -51,10 +46,10 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
       success: true,
       message: "Pending request profiles fetched successfully.",
       data: responseData,
-      pagination: { page, limit, count: responseData.length },
+      count: responseData.length,
     });
-  } catch (error) {
-    console.error("Error fetching pending requests:", error.message);
+  } catch (err) {
+    console.error("Pending swipe fetch error:", err);
     res.status(500).json({
       success: false,
       message: "Internal server error while fetching pending requests.",
@@ -62,22 +57,19 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
   }
 });
 
-// GET: Mutual connections
-networkRouter.get("/network/mutualConnections", userAuth, async (req, res) => {
+// ------------------- GET MUTUAL "LINK" SWIPES -------------------
+networkRouter.get("/network/mutualVibes", userAuth, async (req, res) => {
   try {
-    const userId = req.user._id;
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * limit;
+    const loggedInUserId = req.user._id;
 
+    // Find all swipes where the user is either initiator or recipient
     const mutualSwipes = await Swipe.find({
-      $or: [{ initiatorID: userId }, { recipientID: userId }],
-      connectionStatus: "connected",
-      mutualMatch: true,
-    })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+      $or: [
+        { initiatorID: loggedInUserId, connectionStatus: "Link" },
+        { recipientID: loggedInUserId, connectionStatus: "Link" },
+      ],
+      //mutualMatch: true,
+    }).lean();
 
     if (!mutualSwipes.length) {
       return res.status(200).json({
@@ -87,10 +79,14 @@ networkRouter.get("/network/mutualConnections", userAuth, async (req, res) => {
       });
     }
 
+    // Extract mutual user IDs
     const mutualIDs = mutualSwipes.map((s) =>
-      s.initiatorID.equals(userId) ? s.recipientID : s.initiatorID
+      s.initiatorID.toString() === loggedInUserId.toString()
+        ? s.recipientID
+        : s.initiatorID
     );
 
+    // Fetch profiles of those users
     const mutualProfiles = await Profile.find({ user: { $in: mutualIDs } })
       .select(SAFE_PROFILE_FIELDS)
       .lean();
@@ -99,11 +95,11 @@ networkRouter.get("/network/mutualConnections", userAuth, async (req, res) => {
       success: true,
       message: "Mutual connections fetched successfully.",
       data: mutualProfiles,
-      pagination: { page, limit, count: mutualProfiles.length },
+      count: mutualProfiles.length,
     });
-  } catch (error) {
-    console.error("Error fetching mutual connections:", error.message);
-    res.status(500).json({
+  } catch (err) {
+    console.error("Mutual vibes error:", err);
+    return res.status(500).json({
       success: false,
       message: "Internal server error while fetching mutual connections.",
     });
@@ -111,3 +107,4 @@ networkRouter.get("/network/mutualConnections", userAuth, async (req, res) => {
 });
 
 module.exports = networkRouter;
+

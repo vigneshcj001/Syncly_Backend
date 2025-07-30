@@ -86,48 +86,71 @@ requestRouter.put(
       const loggedInUserId = req.user._id;
 
       const allowedStatus = ["Link", "Noped"];
-
       if (!allowedStatus.includes(connectionStatus)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid connection status. Allowed values: Link, Noped.",
+          message: `Invalid connection status. Allowed: ${allowedStatus.join(
+            ", "
+          )}.`,
         });
       }
 
       if (!mongoose.Types.ObjectId.isValid(requestId)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid request ID." });
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request ID.",
+        });
       }
 
-      const reviewRequest = await Swipe.findOne({
-        _id: requestId,
-        recipientID: loggedInUserId,
-        connectionStatus: "Vibe",
-      });
-
+      const reviewRequest = await Swipe.findById(requestId);
       if (!reviewRequest) {
         return res.status(404).json({
           success: false,
-          message: "Request not found or you're not authorized to act on it.",
+          message:
+            "Request not found. It may have been withdrawn or you're not authorized to act on it.",
+        });
+      }
+
+      if (!reviewRequest.recipientID.equals(loggedInUserId)) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to review this request.",
         });
       }
 
       reviewRequest.connectionStatus = connectionStatus;
-      const data = await reviewRequest.save();
+
+      if (connectionStatus === "Link") {
+        const reciprocalSwipe = await Swipe.findOne({
+          initiatorID: loggedInUserId,
+          recipientID: reviewRequest.initiatorID,
+          connectionStatus: "Link",
+        });
+
+        if (reciprocalSwipe) {
+          reviewRequest.mutualMatch = true;
+          reciprocalSwipe.mutualMatch = true;
+          await reciprocalSwipe.save();
+        }
+      }
+
+      await reviewRequest.save();
 
       return res.status(200).json({
         success: true,
-        message: `Connection request has been marked as '${connectionStatus}'.`,
-        data,
+        message: "Request reviewed successfully.",
+        data: reviewRequest,
       });
     } catch (err) {
-      console.error("Review Request Error:", err);
-      res
-        .status(500)
-        .json({ success: false, message: "Internal server error." });
+      console.error("Error reviewing swipe:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while reviewing the request.",
+      });
     }
   }
 );
+
+
 
 module.exports = requestRouter;

@@ -15,7 +15,7 @@ const SwipeSchema = new Schema(
     },
     connectionStatus: {
       type: String,
-      enum: ["interested", "dismissed", "connected", "declined"],
+      enum: ["Vibe", "Ghost", "Link", "Noped"],
     },
     mutualMatch: { type: Boolean, default: false },
   },

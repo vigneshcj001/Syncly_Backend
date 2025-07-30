@@ -6,12 +6,7 @@ const User = require("../models/user");
 
 const requestRouter = express.Router();
 
-const SWIPE_STATUSES = {
-  SWIPE: ["interested", "dismissed"],
-  REVIEW: ["connected", "declined"],
-};
-
-// POST: Swipe action - "interested" or "dismissed"
+// ------------------ CREATE SWIPE REQUEST ------------------
 requestRouter.post(
   "/request/swipe/:connectionStatus/:recipientId",
   userAuth,
@@ -19,6 +14,8 @@ requestRouter.post(
     try {
       const { connectionStatus, recipientId } = req.params;
       const initiatorId = req.user._id;
+
+      const allowedStatus = ["Vibe", "Ghost"];
 
       if (
         !mongoose.Types.ObjectId.isValid(recipientId) ||
@@ -29,50 +26,49 @@ requestRouter.post(
           .json({ success: false, message: "Invalid recipient ID." });
       }
 
-      if (!SWIPE_STATUSES.SWIPE.includes(connectionStatus)) {
+      if (!allowedStatus.includes(connectionStatus)) {
         return res.status(400).json({
           success: false,
-          message: `Invalid connection status. Allowed: ${SWIPE_STATUSES.SWIPE.join(
-            ", "
-          )}.`,
+          message: "Invalid connection status. Allowed values: Vibe, Ghost.",
         });
       }
 
-      const recipient = await User.findById(recipientId);
+      const recipient = await User.findById(recipientId).lean();
       if (!recipient) {
         return res
           .status(404)
           .json({ success: false, message: "Recipient user not found." });
       }
 
-      const existingSwipe = await Swipe.findOne({
+      const existingSwipeRequest = await Swipe.findOne({
         $or: [
           { initiatorID: initiatorId, recipientID: recipientId },
           { initiatorID: recipientId, recipientID: initiatorId },
         ],
-      });
+      }).lean();
 
-      if (existingSwipe) {
+      if (existingSwipeRequest) {
         return res.status(409).json({
           success: false,
           message: "A connection request already exists.",
         });
       }
 
-      const newSwipe = await Swipe.create({
+      const newSwipeRequest = new Swipe({
         initiatorID: initiatorId,
         recipientID: recipientId,
         connectionStatus,
       });
 
+      const data = await newSwipeRequest.save();
       return res.status(201).json({
         success: true,
         message: `Your '${connectionStatus}' status for ${recipient.userName} has been recorded.`,
         match: false,
-        data: newSwipe,
+        data,
       });
-    } catch (error) {
-      console.error("Swipe Error:", error);
+    } catch (err) {
+      console.error("Swipe Request Error:", err);
       res
         .status(500)
         .json({ success: false, message: "Internal server error." });
@@ -80,48 +76,53 @@ requestRouter.post(
   }
 );
 
-// PUT: Review a pending request
+// ------------------ REVIEW SWIPE REQUEST ------------------
 requestRouter.put(
-  "/request/review/:status/:requestId",
+  "/request/review/:connectionStatus/:requestId",
   userAuth,
   async (req, res) => {
     try {
-      const { status, requestId } = req.params;
-      const userId = req.user._id;
+      const { connectionStatus, requestId } = req.params;
+      const loggedInUserId = req.user._id;
 
-      if (!SWIPE_STATUSES.REVIEW.includes(status)) {
+      const allowedStatus = ["Link", "Noped"];
+
+      if (!allowedStatus.includes(connectionStatus)) {
         return res.status(400).json({
           success: false,
-          message: `Invalid status. Allowed: ${SWIPE_STATUSES.REVIEW.join(
-            ", "
-          )}.`,
+          message: "Invalid connection status. Allowed values: Link, Noped.",
         });
       }
 
-      const request = await Swipe.findOne({
+      if (!mongoose.Types.ObjectId.isValid(requestId)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid request ID." });
+      }
+
+      const reviewRequest = await Swipe.findOne({
         _id: requestId,
-        recipientID: userId,
-        connectionStatus: "interested",
+        recipientID: loggedInUserId,
+        connectionStatus: "Vibe",
       });
 
-      if (!request) {
+      if (!reviewRequest) {
         return res.status(404).json({
           success: false,
-          message: "Request not found or not authorized to act on it.",
+          message: "Request not found or you're not authorized to act on it.",
         });
       }
 
-      request.connectionStatus = status;
-      request.mutualMatch = status === "connected";
-      await request.save();
+      reviewRequest.connectionStatus = connectionStatus;
+      const data = await reviewRequest.save();
 
       return res.status(200).json({
         success: true,
-        message: `Request has been ${status} successfully.`,
-        data: request,
+        message: `Connection request has been marked as '${connectionStatus}'.`,
+        data,
       });
-    } catch (error) {
-      console.error("Review Request Error:", error);
+    } catch (err) {
+      console.error("Review Request Error:", err);
       res
         .status(500)
         .json({ success: false, message: "Internal server error." });

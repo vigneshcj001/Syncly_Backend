@@ -76,6 +76,7 @@ requestRouter.post(
   }
 );
 
+
 // ------------------ REVIEW SWIPE REQUEST ------------------
 requestRouter.put(
   "/request/review/:connectionStatus/:requestId",
@@ -131,7 +132,11 @@ requestRouter.put(
           reviewRequest.mutualMatch = true;
           reciprocalSwipe.mutualMatch = true;
           await reciprocalSwipe.save();
+        } else {
+          reviewRequest.mutualMatch = false;
         }
+      } else if (connectionStatus === "Noped") {
+        reviewRequest.mutualMatch = false;
       }
 
       await reviewRequest.save();
@@ -150,7 +155,5 @@ requestRouter.put(
     }
   }
 );
-
-
 
 module.exports = requestRouter;

@@ -7,10 +7,17 @@ const networkRouter = require("./routes/networkRouter");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
+const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Your React app's address
+    credentials: true, // To allow cookies
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 

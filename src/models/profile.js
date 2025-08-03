@@ -9,7 +9,7 @@ const ProfileSchema = new Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: true,
     },
     userName: {
       type: String,
@@ -33,7 +33,8 @@ const ProfileSchema = new Schema(
     },
     avatar: {
       type: String,
-      default: "https://example.com/default-avatar.png",
+      default:
+        "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png",
       validate: {
         validator: (v) =>
           validator.isURL(v, {
@@ -84,8 +85,8 @@ const ProfileSchema = new Schema(
         validate: [validator.isURL, "Invalid youtube URL"],
       },
     },
-    following: [{ type: Schema.Types.ObjectId, ref: "Profile" }],
-    followers: [{ type: Schema.Types.ObjectId, ref: "Profile" }],
+    following: [{ type: Schema.Types.ObjectId, ref: "Profile", default: 0 }],
+    followers: [{ type: Schema.Types.ObjectId, ref: "Profile", default: 0 }],
     status: {
       type: String,
       enum: ["active", "suspended", "deactivated"],

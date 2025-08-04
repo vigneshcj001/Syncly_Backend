@@ -2,6 +2,7 @@ const express = require("express");
 const Profile = require("../models/profile");
 const { validateProfileUpdate } = require("../utils/validation");
 const { userAuth } = require("../middleware/auth");
+const slugify = require("slugify");
 
 const profileRouter = express.Router();
 
@@ -30,7 +31,7 @@ profileRouter.get("/profile/view", userAuth, async (req, res) => {
   }
 });
 
-// ✅ UPDATE Profile of logged-in user
+// UPDATE Profile of logged-in user
 profileRouter.put("/profile/edit", userAuth, async (req, res) => {
   try {
     const { isValid, updates, invalidFields } = validateProfileUpdate(req.body);
@@ -43,10 +44,22 @@ profileRouter.put("/profile/edit", userAuth, async (req, res) => {
           : "No valid fields provided for update",
       });
     }
+     if (updates.userName) {
+       const existing = await Profile.findOne({
+         userName: updates.userName,
+         user: { $ne: req.user._id },
+       });
+       if (existing) {
+         return res.status(409).json({
+           success: false,
+           message: "Username is already taken",
+         });
+       }
+     }
 
-    const profile = await Profile.findOneAndUpdate(
+    let profile = await Profile.findOneAndUpdate(
       { user: req.user._id },
-      updates,
+      { $set: updates },
       { new: true, runValidators: true }
     );
 
@@ -56,6 +69,9 @@ profileRouter.put("/profile/edit", userAuth, async (req, res) => {
         message: "Profile not found",
       });
     }
+        if (updates.userName) {
+          await profile.save();
+        }
 
     return res.status(200).json({
       success: true,
@@ -70,5 +86,6 @@ profileRouter.put("/profile/edit", userAuth, async (req, res) => {
     });
   }
 });
+
 
 module.exports = profileRouter;

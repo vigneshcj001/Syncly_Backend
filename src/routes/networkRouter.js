@@ -15,23 +15,23 @@ const PROFILE_SELECT = "-slug -createdAt -updatedAt -__v";
 networkRouter.get("/network/feed", userAuth, async (req, res) => {
   try {
     const userId = req.user._id;
-    
 
-    const swipes = await Swipe.find({
-      $or: [{ initiatorID: userId }, { recipientID: userId }],
-    }).select("initiatorID recipientID");
+    // Step 1: Get IDs of recipients user already swiped on with unwanted statuses
+    const seenRecipientIDs = await Swipe.find({
+      initiatorID: userId,
+      connectionStatus: { $in: ["Vibe", "Ghost", "Link", "Noped"] },
+    }).distinct("recipientID"); // Faster & returns unique user IDs directly
 
-    const hideUserIds = new Set([userId.toString()]);
-    swipes.forEach((s) => {
-      hideUserIds.add(s.initiatorID.toString());
-      hideUserIds.add(s.recipientID.toString());
-    });
+    // Step 2: Add self to exclusion list
+    seenRecipientIDs.push(userId);
 
+    // Step 3: Get profiles not in the exclusion list
     const profiles = await Profile.find({
-      user: { $nin: Array.from(hideUserIds) },
+      user: { $nin: seenRecipientIDs },
     })
       .populate(PROFILE_POPULATE)
       .select(PROFILE_SELECT)
+      .sort({ createdAt: -1 }) // Optional: show newest profiles first
       .lean();
 
     return res.status(200).json({
@@ -44,12 +44,13 @@ networkRouter.get("/network/feed", userAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("Error in /network/feed:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error while fetching the feed.",
     });
   }
 });
+
 
 // ------------------- GET PENDING SWIPES SENT BY USER -------------------
 networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {

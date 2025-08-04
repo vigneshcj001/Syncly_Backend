@@ -36,15 +36,24 @@ const ProfileSchema = new Schema(
       default:
         "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png",
       validate: {
-        validator: (v) =>
-          validator.isURL(v, {
-            protocols: ["http", "https"],
-            require_tld: true,
-            require_protocol: true,
-          }) && /\.(jpg|jpeg|png|gif)$/i.test(v),
-        message: (props) => `${props.value} is not a valid image URL!`,
+        validator: function (v) {
+          // Allow base64 or any image format URL
+          return (
+            typeof v === "string" &&
+            (v.startsWith("data:image/") ||
+              /\.(jpeg|jpg|png|gif|webp|svg|bmp)$/i.test(v) ||
+              validator.isURL(v, {
+                protocols: ["http", "https"],
+                require_tld: true,
+                require_protocol: true,
+              }))
+          );
+        },
+        message: (props) =>
+          `${props.value} is not a valid image URL or format!`,
       },
     },
+
     bio: {
       type: String,
       default: "No bio provided",
@@ -70,23 +79,31 @@ const ProfileSchema = new Schema(
       portfolio: {
         type: String,
         validate: [validator.isURL, "Invalid portfolio URL"],
+        default: "",
       },
       github: {
         type: String,
         validate: [validator.isURL, "Invalid github URL"],
+        default: "",
       },
-      X: { type: String, validate: [validator.isURL, "Invalid X URL"] },
+      X: {
+        type: String,
+        validate: [validator.isURL, "Invalid X URL"],
+        default: "",
+      },
       linkedin: {
         type: String,
         validate: [validator.isURL, "Invalid linkedin URL"],
+        default: "",
       },
       youtube: {
         type: String,
         validate: [validator.isURL, "Invalid youtube URL"],
+        default: "",
       },
     },
-    following: [{ type: Schema.Types.ObjectId, ref: "Profile", default: 0 }],
-    followers: [{ type: Schema.Types.ObjectId, ref: "Profile", default: 0 }],
+    following: { type: [Schema.Types.ObjectId], ref: "Profile", default: [] },
+    followers: { type: [Schema.Types.ObjectId], ref: "Profile", default: [] },
     status: {
       type: String,
       enum: ["active", "suspended", "deactivated"],

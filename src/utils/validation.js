@@ -1,5 +1,6 @@
 const validator = require("validator");
 
+//  Used for signup validation
 const validateSignUp = ({ userName, emailID, password }) => {
   const errors = {};
 
@@ -34,6 +35,7 @@ const validateSignUp = ({ userName, emailID, password }) => {
   };
 };
 
+// Fields that can be updated via profile edit
 const allowedEditableFields = [
   "userName",
   "avatar",
@@ -44,18 +46,29 @@ const allowedEditableFields = [
   "interests",
   "location",
   "mentorshipRole",
-  "matchPreferences",
-  "preferences",
   "socialLinks",
 ];
 
+// Profile update validator
 const validateProfileUpdate = (body) => {
   const updates = {};
   const invalidFields = [];
 
   for (const key in body) {
     if (allowedEditableFields.includes(key)) {
-      updates[key] = body[key];
+      if (key === "socialLinks" && typeof body[key] === "object") {
+        const validLinks = ["portfolio", "github", "X", "linkedin", "youtube"];
+        updates[key] = {};
+        for (const subKey in body[key]) {
+          if (validLinks.includes(subKey)) {
+            updates[key][subKey] = body[key][subKey];
+          } else {
+            invalidFields.push(`socialLinks.${subKey}`);
+          }
+        }
+      } else {
+        updates[key] = body[key];
+      }
     } else {
       invalidFields.push(key);
     }
@@ -68,5 +81,7 @@ const validateProfileUpdate = (body) => {
   };
 };
 
-
-module.exports = { validateSignUp, validateProfileUpdate };
+module.exports = {
+  validateSignUp,
+  validateProfileUpdate,
+};

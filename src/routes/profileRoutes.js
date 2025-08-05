@@ -69,9 +69,7 @@ profileRouter.put("/profile/edit", userAuth, async (req, res) => {
         message: "Profile not found",
       });
     }
-        if (updates.userName) {
-          await profile.save();
-        }
+
 
     return res.status(200).json({
       success: true,

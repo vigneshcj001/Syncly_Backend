@@ -57,12 +57,11 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
   try {
     const userId = req.user._id;
 
-
     const pendingSwipes = await Swipe.find({
       initiatorID: userId,
       connectionStatus: "Vibe",
     })
-      .populate({ path: "recipientID", select: "_id" })
+      .populate({ path: "recipientID", select: "_id" }) // Optional but useful
       .lean();
 
     if (!pendingSwipes.length) {
@@ -73,16 +72,32 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
       });
     }
 
-    const recipientIds = pendingSwipes.map((s) => s.recipientID._id);
+    // Handle both populated and unpopulated recipientID cases, and filter out undefined
+    const recipientIds = pendingSwipes
+      .map((s) => s.recipientID?._id || s.recipientID)
+      .filter((id) => id);
+
+    if (!recipientIds.length) {
+      return res.status(200).json({
+        success: true,
+        message: "No valid recipient IDs found.",
+        data: [],
+      });
+    }
+
     const profiles = await Profile.find({ user: { $in: recipientIds } })
-      .populate(PROFILE_POPULATE)
-      .select(PROFILE_SELECT)
+      .populate({
+        path: "user",
+        select: "-userName -emailID -password -createdAt -updatedAt -__v",
+      })
+      .select("-slug -createdAt -updatedAt -__v")
       .lean();
 
     const enriched = profiles.map((profile) => {
-      const swipe = pendingSwipes.find((s) =>
-        s.recipientID._id.equals(profile.user)
-      );
+      const swipe = pendingSwipes.find((s) => {
+        const recipientId = s.recipientID?._id?.toString() || s.recipientID?.toString();
+        return recipientId === profile.user.toString();
+      });
       return { ...profile, swipeRequestId: swipe?._id };
     });
 
@@ -92,14 +107,17 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
       data: enriched,
       count: enriched.length,
     });
+
   } catch (err) {
-    console.error("Error in /network/requests/pendings:", err);
+    console.error("🔴 ERROR in /network/requests/pendings:", err.stack || err);
     res.status(500).json({
       success: false,
       message: "Internal server error while fetching pending requests.",
     });
   }
 });
+
+
 
 // ------------------- GET MUTUAL "LINK" SWIPES -------------------
 networkRouter.get("/network/mutualVibes", userAuth, async (req, res) => {

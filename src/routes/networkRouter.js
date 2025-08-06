@@ -1,9 +1,8 @@
 const express = require("express");
+const networkRouter = express.Router();
 const { userAuth } = require("../middleware/auth");
 const Swipe = require("../models/swipe");
 const Profile = require("../models/profile");
-
-const networkRouter = express.Router();
 
 const PROFILE_POPULATE = {
   path: "user",
@@ -11,58 +10,16 @@ const PROFILE_POPULATE = {
 };
 const PROFILE_SELECT = "-slug -createdAt -updatedAt -__v";
 
-// ------------------- GET FEED (UNSEEN PROFILES) -------------------
-networkRouter.get("/network/feed", userAuth, async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    // Step 1: Get IDs of recipients user already swiped on with unwanted statuses
-    const seenRecipientIDs = await Swipe.find({
-      initiatorID: userId,
-      connectionStatus: { $in: ["Vibe", "Ghost", "Link", "Noped"] },
-    }).distinct("recipientID"); // Faster & returns unique user IDs directly
-
-    // Step 2: Add self to exclusion list
-    seenRecipientIDs.push(userId);
-
-    // Step 3: Get profiles not in the exclusion list
-    const profiles = await Profile.find({
-      user: { $nin: seenRecipientIDs },
-    })
-      .populate(PROFILE_POPULATE)
-      .select(PROFILE_SELECT)
-      .sort({ createdAt: -1 }) // Optional: show newest profiles first
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      message: profiles.length
-        ? "Feed fetched successfully."
-        : "No new profiles to show right now.",
-      totalResults: profiles.length,
-      feed: profiles,
-    });
-  } catch (err) {
-    console.error("Error in /network/feed:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error while fetching the feed.",
-    });
-  }
-});
-
-
-// ------------------- GET PENDING SWIPES SENT BY USER -------------------
+// ------------------- GET PENDING SWIPES -------------------
 networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const loggedInUser = req.user;
 
+    // Find swipes where someone else sent a Vibe to this user
     const pendingSwipes = await Swipe.find({
-      initiatorID: userId,
+      recipientID: loggedInUser._id,
       connectionStatus: "Vibe",
-    })
-      .populate({ path: "recipientID", select: "_id" }) // Optional but useful
-      .lean();
+    }).populate("initiatorID", "_id"); // populate the one who sent the Vibe
 
     if (!pendingSwipes.length) {
       return res.status(200).json({
@@ -72,84 +29,76 @@ networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
       });
     }
 
-    // Handle both populated and unpopulated recipientID cases, and filter out undefined
-    const recipientIds = pendingSwipes
-      .map((s) => s.recipientID?._id || s.recipientID)
-      .filter((id) => id);
+    // Extract user IDs who sent the Vibe
+    const initiatorIds = pendingSwipes.map((s) => s.initiatorID._id);
 
-    if (!recipientIds.length) {
-      return res.status(200).json({
-        success: true,
-        message: "No valid recipient IDs found.",
-        data: [],
-      });
-    }
+    const profiles = await Profile.find({ user: { $in: initiatorIds } })
+      .populate(PROFILE_POPULATE)
+      .select(PROFILE_SELECT);
 
-    const profiles = await Profile.find({ user: { $in: recipientIds } })
-      .populate({
-        path: "user",
-        select: "-userName -emailID -password -createdAt -updatedAt -__v",
-      })
-      .select("-slug -createdAt -updatedAt -__v")
-      .lean();
-
-    const enriched = profiles.map((profile) => {
-      const swipe = pendingSwipes.find((s) => {
-        const recipientId = s.recipientID?._id?.toString() || s.recipientID?.toString();
-        return recipientId === profile.user.toString();
-      });
-      return { ...profile, swipeRequestId: swipe?._id };
-    });
-
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Pending request profiles fetched successfully.",
-      data: enriched,
-      count: enriched.length,
+      data: profiles,
+      count: profiles.length,
     });
-
-  } catch (err) {
-    console.error("🔴 ERROR in /network/requests/pendings:", err.stack || err);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error while fetching pending requests.",
-    });
+  } catch (error) {
+    res.status(400).send("ERROR: " + error.message);
   }
 });
 
 
-
-// ------------------- GET MUTUAL "LINK" SWIPES -------------------
+// ------------------- GET MUTUAL CONNECTIONS -------------------
 networkRouter.get("/network/mutualVibes", userAuth, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const loggedInUser = req.user;
+    const loggedInUserId = req.user._id.toString();
 
-    const mutualSwipes = await Swipe.find({
+    // Fetch all swipes with "Link" where the user is either initiator or recipient
+    const allLinkSwipes = await Swipe.find({
       $or: [
-        { initiatorID: userId, connectionStatus: "Link" },
-        { recipientID: userId, connectionStatus: "Link" },
+        { initiatorID: loggedInUserId, connectionStatus: "Link" },
+        { recipientID: loggedInUserId, connectionStatus: "Link" },
       ],
-      mutualMatch: true,
-    }).lean();
+    }).populate("initiatorID recipientID", "_id");
 
-    if (!mutualSwipes.length) {
+    const linksFromUser = new Set(); // Users the logged-in user sent a "Link" to
+    const linksToUser = new Set();   // Users who sent a "Link" to the logged-in user
+
+    allLinkSwipes.forEach((swipe) => {
+      const initiatorId = swipe.initiatorID._id.toString();
+      const recipientId = swipe.recipientID._id.toString();
+
+      if (initiatorId === loggedInUserId) {
+        linksFromUser.add(recipientId);
+      }
+      if (recipientId === loggedInUserId) {
+        linksToUser.add(initiatorId);
+      }
+    });
+
+    // Find mutual connections (both users sent "Link" to each other)
+    const mutualUserIds = [...linksFromUser].filter((id) =>
+      linksToUser.has(id)
+    );
+
+    if (!mutualUserIds.length) {
       return res.status(200).json({
         success: true,
         message: "No mutual connections found.",
         data: [],
+        count: 0,
       });
     }
 
-    const mutualUserIds = mutualSwipes.map((s) =>
-      s.initiatorID.toString() === userId.toString()
-        ? s.recipientID
-        : s.initiatorID
-    );
-
-    const profiles = await Profile.find({ user: { $in: mutualUserIds } })
-      .populate(PROFILE_POPULATE)
-      .select(PROFILE_SELECT)
-      .lean();
+    const profiles = await Profile.find({
+      user: { $in: mutualUserIds },
+    })
+      .populate({
+        path: "user",
+        select: "-userName -emailID -password -createdAt -updatedAt -__v",
+      })
+      .select("-slug -createdAt -updatedAt -__v");
 
     return res.status(200).json({
       success: true,
@@ -157,12 +106,58 @@ networkRouter.get("/network/mutualVibes", userAuth, async (req, res) => {
       data: profiles,
       count: profiles.length,
     });
-  } catch (err) {
-    console.error("Error in /network/mutualVibes:", err);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error while fetching mutual connections.",
+  } catch (error) {
+    console.error("Error in /network/mutualVibes:", error);
+    return res.status(400).send("ERROR: " + error.message);
+  }
+});
+
+
+
+// ------------------- GET FEED -------------------
+networkRouter.get("/network/feed", userAuth, async (req, res) => {
+  try {
+    const loggedInUser = req.user;
+
+    const page = parseInt(req.query.page || 1);
+    let limit = parseInt(req.query.limit || 10);
+    limit = limit > 50 ? 50 : limit;
+    const skip = (page - 1) * limit;
+
+    const swipes = await Swipe.find({
+      $or: [
+        { initiatorID: loggedInUser._id },
+        { recipientID: loggedInUser._id },
+      ],
+    }).select("initiatorID recipientID");
+
+    const hideUsersFromFeed = new Set();
+    swipes.forEach((req) => {
+      hideUsersFromFeed.add(req.initiatorID.toString());
+      hideUsersFromFeed.add(req.recipientID.toString());
     });
+
+    const profiles = await Profile.find({
+      $and: [
+        { user: { $nin: Array.from(hideUsersFromFeed) } },
+        { user: { $ne: loggedInUser._id } },
+      ],
+    })
+      .populate(PROFILE_POPULATE)
+      .select(PROFILE_SELECT)
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      message: profiles.length
+        ? "Feed fetched successfully."
+        : "No new profiles to show right now.",
+      feed: profiles,
+      totalResults: profiles.length,
+    });
+  } catch (error) {
+    res.status(400).send("ERROR: " + error.message);
   }
 });
 

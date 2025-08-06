@@ -16,14 +16,16 @@ const SwipeSchema = new Schema(
     connectionStatus: {
       type: String,
       enum: ["Vibe", "Ghost", "Link", "Noped"],
+      required: true,
     },
-    mutualMatch: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
+// Prevent duplicate swipes between same users
 SwipeSchema.index({ initiatorID: 1, recipientID: 1 }, { unique: true });
 
+// Prevent self-swipes
 SwipeSchema.pre("save", function (next) {
   if (this.initiatorID.equals(this.recipientID)) {
     return next(new Error("You cannot connect with your own profile."));

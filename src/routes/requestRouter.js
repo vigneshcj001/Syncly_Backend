@@ -76,7 +76,7 @@ requestRouter.post(
   }
 );
 
-
+// ------------------ REVIEW SWIPE REQUEST ------------------
 // ------------------ REVIEW SWIPE REQUEST ------------------
 requestRouter.put(
   "/request/review/:connectionStatus/:requestId",
@@ -119,27 +119,29 @@ requestRouter.put(
         });
       }
 
+      // Update the original swipe's status
       reviewRequest.connectionStatus = connectionStatus;
+      await reviewRequest.save();
 
+      // 🔁 Auto-create reciprocal Link swipe if mutual
       if (connectionStatus === "Link") {
-        const reciprocalSwipe = await Swipe.findOne({
+        const initiatorId = reviewRequest.initiatorID;
+
+        const existingReciprocal = await Swipe.findOne({
           initiatorID: loggedInUserId,
-          recipientID: reviewRequest.initiatorID,
-          connectionStatus: "Link",
+          recipientID: initiatorId,
         });
 
-        if (reciprocalSwipe) {
-          reviewRequest.mutualMatch = true;
-          reciprocalSwipe.mutualMatch = true;
-          await reciprocalSwipe.save();
-        } else {
-          reviewRequest.mutualMatch = false;
-        }
-      } else if (connectionStatus === "Noped") {
-        reviewRequest.mutualMatch = false;
-      }
+        if (!existingReciprocal) {
+          const reverseSwipe = new Swipe({
+            initiatorID: loggedInUserId,
+            recipientID: initiatorId,
+            connectionStatus: "Link",
+          });
 
-      await reviewRequest.save();
+          await reverseSwipe.save();
+        }
+      }
 
       return res.status(200).json({
         success: true,

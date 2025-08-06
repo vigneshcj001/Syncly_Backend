@@ -37,7 +37,6 @@ const ProfileSchema = new Schema(
         "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png",
       validate: {
         validator: function (v) {
-          // Allow base64 or any image format URL
           return (
             typeof v === "string" &&
             (v.startsWith("data:image/") ||
@@ -53,7 +52,6 @@ const ProfileSchema = new Schema(
           `${props.value} is not a valid image URL or format!`,
       },
     },
-
     bio: {
       type: String,
       default: "No bio provided",
@@ -78,28 +76,78 @@ const ProfileSchema = new Schema(
     socialLinks: {
       portfolio: {
         type: String,
-        validate: [validator.isURL, "Invalid portfolio URL"],
         default: "",
+        validate: {
+          validator: function (v) {
+            if (!v) return true;
+            return validator.isURL(v, {
+              protocols: ["http", "https"],
+              require_tld: true,
+              require_protocol: true,
+            });
+          },
+          message: "Invalid portfolio URL",
+        },
       },
       github: {
         type: String,
-        validate: [validator.isURL, "Invalid github URL"],
         default: "",
+        validate: {
+          validator: function (v) {
+            if (!v) return true;
+            return validator.isURL(v, {
+              protocols: ["http", "https"],
+              require_tld: true,
+              require_protocol: true,
+            });
+          },
+          message: "Invalid github URL",
+        },
       },
       X: {
         type: String,
-        validate: [validator.isURL, "Invalid X URL"],
         default: "",
+        validate: {
+          validator: function (v) {
+            if (!v) return true;
+            return validator.isURL(v, {
+              protocols: ["http", "https"],
+              require_tld: true,
+              require_protocol: true,
+            });
+          },
+          message: "Invalid X URL",
+        },
       },
       linkedin: {
         type: String,
-        validate: [validator.isURL, "Invalid linkedin URL"],
         default: "",
+        validate: {
+          validator: function (v) {
+            if (!v) return true;
+            return validator.isURL(v, {
+              protocols: ["http", "https"],
+              require_tld: true,
+              require_protocol: true,
+            });
+          },
+          message: "Invalid linkedin URL",
+        },
       },
       youtube: {
         type: String,
-        validate: [validator.isURL, "Invalid youtube URL"],
         default: "",
+        validate: {
+          validator: function (v) {
+            if (!v) return true;
+            return validator.isURL(v, {
+              protocols: ["http", "https"],
+              require_tld: true,
+              require_protocol: true,
+            });
+          },
+          message: "Invalid youtube URL",
+        },
       },
     },
     following: { type: [Schema.Types.ObjectId], ref: "Profile", default: [] },
@@ -114,7 +162,6 @@ const ProfileSchema = new Schema(
     timestamps: true,
   }
 );
-
 
 // Pre-save hook to generate slug from userName
 ProfileSchema.pre("save", function (next) {

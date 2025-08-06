@@ -77,8 +77,7 @@ requestRouter.post(
 );
 
 // ------------------ REVIEW SWIPE REQUEST ------------------
-// ------------------ REVIEW SWIPE REQUEST ------------------
-requestRouter.put(
+requestRouter.post(
   "/request/review/:connectionStatus/:requestId",
   userAuth,
   async (req, res) => {
@@ -92,7 +91,7 @@ requestRouter.put(
           success: false,
           message: `Invalid connection status. Allowed: ${allowedStatus.join(
             ", "
-          )}.`,
+          )}`,
         });
       }
 
@@ -103,27 +102,25 @@ requestRouter.put(
         });
       }
 
-      const reviewRequest = await Swipe.findById(requestId);
+      // Find pending swipe request where current user is the recipient
+      const reviewRequest = await Swipe.findOne({
+        _id: requestId,
+        recipientID: loggedInUserId,
+        connectionStatus: { $in: ["Vibe", "Ghost"] },
+      });
+
       if (!reviewRequest) {
         return res.status(404).json({
           success: false,
-          message:
-            "Request not found. It may have been withdrawn or you're not authorized to act on it.",
+          message: "Swipe request not found or already reviewed.",
         });
       }
 
-      if (!reviewRequest.recipientID.equals(loggedInUserId)) {
-        return res.status(403).json({
-          success: false,
-          message: "Not authorized to review this request.",
-        });
-      }
-
-      // Update the original swipe's status
+      // Update the swipe with reviewed status
       reviewRequest.connectionStatus = connectionStatus;
       await reviewRequest.save();
 
-      // 🔁 Auto-create reciprocal Link swipe if mutual
+      // If accepted as "Link", create reciprocal Link if not already present
       if (connectionStatus === "Link") {
         const initiatorId = reviewRequest.initiatorID;
 
@@ -145,7 +142,7 @@ requestRouter.put(
 
       return res.status(200).json({
         success: true,
-        message: "Request reviewed successfully.",
+        message: "Swipe request reviewed successfully.",
         data: reviewRequest,
       });
     } catch (err) {
@@ -157,5 +154,7 @@ requestRouter.put(
     }
   }
 );
+
+
 
 module.exports = requestRouter;

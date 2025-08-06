@@ -11,104 +11,132 @@ const PROFILE_POPULATE = {
 const PROFILE_SELECT = "-slug -createdAt -updatedAt -__v";
 
 // ------------------- GET PENDING SWIPES -------------------
+// GET pending vibe requests for current user
 networkRouter.get("/network/requests/pendings", userAuth, async (req, res) => {
   try {
-    const loggedInUser = req.user;
+    const userId = req.user._id;
 
-    // Find swipes where someone else sent a Vibe to this user
-    const pendingSwipes = await Swipe.find({
-      recipientID: loggedInUser._id,
+    const pendings = await Swipe.find({
+      recipientID: userId,
       connectionStatus: "Vibe",
-    }).populate("initiatorID", "_id"); // populate the one who sent the Vibe
+    }).lean();
 
-    if (!pendingSwipes.length) {
-      return res.status(200).json({
-        success: true,
-        message: "No pending requests found.",
-        data: [],
-      });
-    }
+    const initiatorIds = pendings.map((p) => p.initiatorID);
 
-    // Extract user IDs who sent the Vibe
-    const initiatorIds = pendingSwipes.map((s) => s.initiatorID._id);
+    const profiles = await Profile.find({ user: { $in: initiatorIds } }).lean();
 
-    const profiles = await Profile.find({ user: { $in: initiatorIds } })
-      .populate(PROFILE_POPULATE)
-      .select(PROFILE_SELECT);
+    const profileMap = {};
+    profiles.forEach((p) => {
+      profileMap[p.user.toString()] = p;
+    });
+
+    const enrichedPendings = pendings.map((swipe) => ({
+      ...swipe,
+      initiatorID: profileMap[swipe.initiatorID.toString()] || null,
+    }));
 
     res.status(200).json({
       success: true,
-      message: "Pending request profiles fetched successfully.",
-      data: profiles,
-      count: profiles.length,
+      message: "Pending Vibe requests received",
+      data: enrichedPendings,
     });
   } catch (error) {
-    res.status(400).send("ERROR: " + error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 
+
 // ------------------- GET MUTUAL CONNECTIONS -------------------
+// GET mutual vibe connections where final status is "Link"
 networkRouter.get("/network/mutualVibes", userAuth, async (req, res) => {
   try {
-    const loggedInUser = req.user;
-    const loggedInUserId = req.user._id.toString();
+    const userId = req.user._id;
 
-    // Fetch all swipes with "Link" where the user is either initiator or recipient
-    const allLinkSwipes = await Swipe.find({
-      $or: [
-        { initiatorID: loggedInUserId, connectionStatus: "Link" },
-        { recipientID: loggedInUserId, connectionStatus: "Link" },
-      ],
-    }).populate("initiatorID recipientID", "_id");
+    // Step 1: Find all mutual "Vibe" connections
+    const sentVibes = await Swipe.find({
+      initiatorID: userId,
+      connectionStatus: "Vibe",
+    }).lean();
 
-    const linksFromUser = new Set(); // Users the logged-in user sent a "Link" to
-    const linksToUser = new Set();   // Users who sent a "Link" to the logged-in user
+    const recipientIds = sentVibes.map((s) => s.recipientID);
 
-    allLinkSwipes.forEach((swipe) => {
-      const initiatorId = swipe.initiatorID._id.toString();
-      const recipientId = swipe.recipientID._id.toString();
+    const receivedVibes = await Swipe.find({
+      initiatorID: { $in: recipientIds },
+      recipientID: userId,
+      connectionStatus: "Vibe",
+    }).lean();
 
-      if (initiatorId === loggedInUserId) {
-        linksFromUser.add(recipientId);
+    const mutualUserPairs = [];
+
+    for (const received of receivedVibes) {
+      const match = sentVibes.find(
+        (s) =>
+          s.recipientID.toString() === received.initiatorID.toString()
+      );
+
+      if (match) {
+        mutualUserPairs.push({
+          userA: userId,
+          userB: received.initiatorID,
+        });
       }
-      if (recipientId === loggedInUserId) {
-        linksToUser.add(initiatorId);
-      }
-    });
-
-    // Find mutual connections (both users sent "Link" to each other)
-    const mutualUserIds = [...linksFromUser].filter((id) =>
-      linksToUser.has(id)
-    );
-
-    if (!mutualUserIds.length) {
-      return res.status(200).json({
-        success: true,
-        message: "No mutual connections found.",
-        data: [],
-        count: 0,
-      });
     }
 
-    const profiles = await Profile.find({
-      user: { $in: mutualUserIds },
-    })
-      .populate({
-        path: "user",
-        select: "-userName -emailID -password -createdAt -updatedAt -__v",
-      })
-      .select("-slug -createdAt -updatedAt -__v");
+    // Step 2: Now find all swipes between mutual pairs where status is "Link"
+    const orConditions = mutualUserPairs.flatMap(({ userA, userB }) => [
+      { initiatorID: userA, recipientID: userB },
+      { initiatorID: userB, recipientID: userA },
+    ]);
 
-    return res.status(200).json({
+    const linkedSwipes = await Swipe.find({
+      connectionStatus: "Link",
+      $or: orConditions,
+    }).lean();
+
+    const uniqueLinkedPairs = [];
+
+    const seen = new Set();
+
+    for (const swipe of linkedSwipes) {
+      const key = [swipe.initiatorID.toString(), swipe.recipientID.toString()]
+        .sort()
+        .join("_");
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueLinkedPairs.push(swipe);
+      }
+    }
+
+    const allUserIds = new Set();
+    uniqueLinkedPairs.forEach((s) => {
+      allUserIds.add(s.initiatorID.toString());
+      allUserIds.add(s.recipientID.toString());
+    });
+
+    const profiles = await Profile.find({
+      user: { $in: Array.from(allUserIds) },
+    }).lean();
+
+    const profileMap = {};
+    profiles.forEach((p) => {
+      profileMap[p.user.toString()] = p;
+    });
+
+    const enriched = uniqueLinkedPairs.map((pair) => ({
+      ...pair,
+      initiatorID: profileMap[pair.initiatorID.toString()] || null,
+      recipientID: profileMap[pair.recipientID.toString()] || null,
+    }));
+
+    res.status(200).json({
       success: true,
-      message: "Mutual connections fetched successfully.",
-      data: profiles,
-      count: profiles.length,
+      message: "Mutual Links fetched",
+      data: enriched,
     });
   } catch (error) {
-    console.error("Error in /network/mutualVibes:", error);
-    return res.status(400).send("ERROR: " + error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

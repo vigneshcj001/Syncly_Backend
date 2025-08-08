@@ -1,20 +1,18 @@
 const Profile = require("../../models/profile");
-const Project = require("../../models/Project");
+const Education = require("../../models/Education");
 
-// @desc    Create a new project
-// @route   POST /api/projects
+// @desc    Create a new education
+// @route   POST /api/educations
 // @access  Private
-const createProject = async (req, res) => {
+const createEducation = async (req, res) => {
   try {
     const {
-      title,
-      description,
-      technologies,
-      liveDemoLink,
-      sourceCodeLink,
-      images,
+      institution,
+      degree,
+      fieldOfStudy,
       startDate,
       endDate,
+      description,
     } = req.body;
 
     const profile = await Profile.findOne({ user: req.user._id });
@@ -26,24 +24,22 @@ const createProject = async (req, res) => {
       });
     }
 
-    const newProject = new Project({
+    const newEducation = new Education({
       profile: profile._id,
-      title,
-      description,
-      technologies,
-      liveDemoLink,
-      sourceCodeLink,
-      images,
+      institution,
+      degree,
+      fieldOfStudy,
       startDate,
       endDate,
+      description,
     });
 
-    await newProject.save();
+    await newEducation.save();
 
     res.status(201).json({
       success: true,
-      message: "Project created successfully",
-      data: newProject,
+      message: "Education created successfully",
+      data: newEducation,
     });
   } catch (err) {
     res.status(500).json({
@@ -54,10 +50,10 @@ const createProject = async (req, res) => {
   }
 };
 
-// @desc    Get all projects for a profile by slug
-// @route   GET /api/projects/:slug
+// @desc    Get all educations for a profile by slug
+// @route   GET /api/educations/:slug
 // @access  Public
-const getProjects = async (req, res) => {
+const getEducations = async (req, res) => {
   try {
     const { slug } = req.params;
 
@@ -70,14 +66,14 @@ const getProjects = async (req, res) => {
       });
     }
 
-    const projects = await Project.find({ profile: profile._id }).sort({
-      createdAt: -1,
+    const educations = await Education.find({ profile: profile._id }).sort({
+      startDate: -1,
     });
 
     res.status(200).json({
       success: true,
-      message: "Projects fetched successfully",
-      data: projects,
+      message: "Educations fetched successfully",
+      data: educations,
     });
   } catch (err) {
     res.status(500).json({
@@ -88,30 +84,30 @@ const getProjects = async (req, res) => {
   }
 };
 
-// @desc    Update a project by ID
-// @route   PUT /api/projects/:id
+// @desc    Update an education by ID
+// @route   PUT /api/educations/:id
 // @access  Private
-const updateProject = async (req, res) => {
+const updateEducation = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const education = await Education.findById(req.params.id);
 
-    if (!project) {
+    if (!education) {
       return res.status(404).json({
         success: false,
-        message: "Project not found",
+        message: "Education not found",
       });
     }
 
     const profile = await Profile.findOne({ user: req.user._id });
 
-    if (!profile || project.profile.toString() !== profile._id.toString()) {
+    if (!profile || education.profile.toString() !== profile._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    const updated = await Project.findByIdAndUpdate(
+    const updated = await Education.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
       { new: true }
@@ -119,7 +115,7 @@ const updateProject = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Project updated successfully",
+      message: "Education updated successfully",
       data: updated,
     });
   } catch (err) {
@@ -131,34 +127,34 @@ const updateProject = async (req, res) => {
   }
 };
 
-// @desc    Delete a project by ID
-// @route   DELETE /api/projects/:id
+// @desc    Delete an education by ID
+// @route   DELETE /api/educations/:id
 // @access  Private
-const deleteProject = async (req, res) => {
+const deleteEducation = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const education = await Education.findById(req.params.id);
 
-    if (!project) {
+    if (!education) {
       return res.status(404).json({
         success: false,
-        message: "Project not found",
+        message: "Education not found",
       });
     }
 
     const profile = await Profile.findOne({ user: req.user._id });
 
-    if (!profile || project.profile.toString() !== profile._id.toString()) {
+    if (!profile || education.profile.toString() !== profile._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    await project.deleteOne();
+    await education.deleteOne();
 
     res.status(200).json({
       success: true,
-      message: "Project deleted successfully",
+      message: "Education deleted successfully",
     });
   } catch (err) {
     res.status(500).json({
@@ -170,8 +166,8 @@ const deleteProject = async (req, res) => {
 };
 
 module.exports = {
-  createProject,
-  getProjects,
-  updateProject,
-  deleteProject,
+  createEducation,
+  getEducations,
+  updateEducation,
+  deleteEducation,
 };

@@ -1,21 +1,13 @@
 const Profile = require("../../models/profile");
-const Project = require("../../models/Project");
+const Experience = require("../../models/Experience");
 
-// @desc    Create a new project
-// @route   POST /api/projects
+// @desc    Create a new experience
+// @route   POST /api/experiences
 // @access  Private
-const createProject = async (req, res) => {
+const createExperience = async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      technologies,
-      liveDemoLink,
-      sourceCodeLink,
-      images,
-      startDate,
-      endDate,
-    } = req.body;
+    const { company, role, startDate, endDate, description, employmentType } =
+      req.body;
 
     const profile = await Profile.findOne({ user: req.user._id });
 
@@ -26,24 +18,22 @@ const createProject = async (req, res) => {
       });
     }
 
-    const newProject = new Project({
+    const newExperience = new Experience({
       profile: profile._id,
-      title,
-      description,
-      technologies,
-      liveDemoLink,
-      sourceCodeLink,
-      images,
+      company,
+      role,
       startDate,
       endDate,
+      description,
+      employmentType,
     });
 
-    await newProject.save();
+    await newExperience.save();
 
     res.status(201).json({
       success: true,
-      message: "Project created successfully",
-      data: newProject,
+      message: "Experience created successfully",
+      data: newExperience,
     });
   } catch (err) {
     res.status(500).json({
@@ -54,10 +44,10 @@ const createProject = async (req, res) => {
   }
 };
 
-// @desc    Get all projects for a profile by slug
-// @route   GET /api/projects/:slug
+// @desc    Get all experiences for a profile by slug
+// @route   GET /api/experiences/:slug
 // @access  Public
-const getProjects = async (req, res) => {
+const getExperiences = async (req, res) => {
   try {
     const { slug } = req.params;
 
@@ -70,14 +60,14 @@ const getProjects = async (req, res) => {
       });
     }
 
-    const projects = await Project.find({ profile: profile._id }).sort({
-      createdAt: -1,
+    const experiences = await Experience.find({ profile: profile._id }).sort({
+      startDate: -1,
     });
 
     res.status(200).json({
       success: true,
-      message: "Projects fetched successfully",
-      data: projects,
+      message: "Experiences fetched successfully",
+      data: experiences,
     });
   } catch (err) {
     res.status(500).json({
@@ -88,30 +78,30 @@ const getProjects = async (req, res) => {
   }
 };
 
-// @desc    Update a project by ID
-// @route   PUT /api/projects/:id
+// @desc    Update an experience by ID
+// @route   PUT /api/experiences/:id
 // @access  Private
-const updateProject = async (req, res) => {
+const updateExperience = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const experience = await Experience.findById(req.params.id);
 
-    if (!project) {
+    if (!experience) {
       return res.status(404).json({
         success: false,
-        message: "Project not found",
+        message: "Experience not found",
       });
     }
 
     const profile = await Profile.findOne({ user: req.user._id });
 
-    if (!profile || project.profile.toString() !== profile._id.toString()) {
+    if (!profile || experience.profile.toString() !== profile._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    const updated = await Project.findByIdAndUpdate(
+    const updated = await Experience.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
       { new: true }
@@ -119,7 +109,7 @@ const updateProject = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Project updated successfully",
+      message: "Experience updated successfully",
       data: updated,
     });
   } catch (err) {
@@ -131,34 +121,34 @@ const updateProject = async (req, res) => {
   }
 };
 
-// @desc    Delete a project by ID
-// @route   DELETE /api/projects/:id
+// @desc    Delete an experience by ID
+// @route   DELETE /api/experiences/:id
 // @access  Private
-const deleteProject = async (req, res) => {
+const deleteExperience = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const experience = await Experience.findById(req.params.id);
 
-    if (!project) {
+    if (!experience) {
       return res.status(404).json({
         success: false,
-        message: "Project not found",
+        message: "Experience not found",
       });
     }
 
     const profile = await Profile.findOne({ user: req.user._id });
 
-    if (!profile || project.profile.toString() !== profile._id.toString()) {
+    if (!profile || experience.profile.toString() !== profile._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    await project.deleteOne();
+    await experience.deleteOne();
 
     res.status(200).json({
       success: true,
-      message: "Project deleted successfully",
+      message: "Experience deleted successfully",
     });
   } catch (err) {
     res.status(500).json({
@@ -170,8 +160,8 @@ const deleteProject = async (req, res) => {
 };
 
 module.exports = {
-  createProject,
-  getProjects,
-  updateProject,
-  deleteProject,
+  createExperience,
+  getExperiences,
+  updateExperience,
+  deleteExperience,
 };

@@ -1,20 +1,19 @@
 const Profile = require("../../models/profile");
-const Project = require("../../models/Project");
+const Certification = require("../../models/Certification");
 
-// @desc    Create a new project
-// @route   POST /api/projects
+// @desc    Create a new certification
+// @route   POST /api/certifications
 // @access  Private
-const createProject = async (req, res) => {
+const createCertification = async (req, res) => {
   try {
     const {
-      title,
+      name,
+      issuingOrganization,
+      issueDate,
+      expirationDate,
+      credentialID,
+      credentialURL,
       description,
-      technologies,
-      liveDemoLink,
-      sourceCodeLink,
-      images,
-      startDate,
-      endDate,
     } = req.body;
 
     const profile = await Profile.findOne({ user: req.user._id });
@@ -26,24 +25,23 @@ const createProject = async (req, res) => {
       });
     }
 
-    const newProject = new Project({
+    const newCertification = new Certification({
       profile: profile._id,
-      title,
+      name,
+      issuingOrganization,
+      issueDate,
+      expirationDate,
+      credentialID,
+      credentialURL,
       description,
-      technologies,
-      liveDemoLink,
-      sourceCodeLink,
-      images,
-      startDate,
-      endDate,
     });
 
-    await newProject.save();
+    await newCertification.save();
 
     res.status(201).json({
       success: true,
-      message: "Project created successfully",
-      data: newProject,
+      message: "Certification created successfully",
+      data: newCertification,
     });
   } catch (err) {
     res.status(500).json({
@@ -54,10 +52,10 @@ const createProject = async (req, res) => {
   }
 };
 
-// @desc    Get all projects for a profile by slug
-// @route   GET /api/projects/:slug
+// @desc    Get all certifications for a profile by slug
+// @route   GET /api/certifications/:slug
 // @access  Public
-const getProjects = async (req, res) => {
+const getCertifications = async (req, res) => {
   try {
     const { slug } = req.params;
 
@@ -70,14 +68,16 @@ const getProjects = async (req, res) => {
       });
     }
 
-    const projects = await Project.find({ profile: profile._id }).sort({
-      createdAt: -1,
+    const certifications = await Certification.find({
+      profile: profile._id,
+    }).sort({
+      issueDate: -1,
     });
 
     res.status(200).json({
       success: true,
-      message: "Projects fetched successfully",
-      data: projects,
+      message: "Certifications fetched successfully",
+      data: certifications,
     });
   } catch (err) {
     res.status(500).json({
@@ -88,30 +88,33 @@ const getProjects = async (req, res) => {
   }
 };
 
-// @desc    Update a project by ID
-// @route   PUT /api/projects/:id
+// @desc    Update a certification by ID
+// @route   PUT /api/certifications/:id
 // @access  Private
-const updateProject = async (req, res) => {
+const updateCertification = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const certification = await Certification.findById(req.params.id);
 
-    if (!project) {
+    if (!certification) {
       return res.status(404).json({
         success: false,
-        message: "Project not found",
+        message: "Certification not found",
       });
     }
 
     const profile = await Profile.findOne({ user: req.user._id });
 
-    if (!profile || project.profile.toString() !== profile._id.toString()) {
+    if (
+      !profile ||
+      certification.profile.toString() !== profile._id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    const updated = await Project.findByIdAndUpdate(
+    const updated = await Certification.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
       { new: true }
@@ -119,7 +122,7 @@ const updateProject = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Project updated successfully",
+      message: "Certification updated successfully",
       data: updated,
     });
   } catch (err) {
@@ -131,34 +134,37 @@ const updateProject = async (req, res) => {
   }
 };
 
-// @desc    Delete a project by ID
-// @route   DELETE /api/projects/:id
+// @desc    Delete a certification by ID
+// @route   DELETE /api/certifications/:id
 // @access  Private
-const deleteProject = async (req, res) => {
+const deleteCertification = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const certification = await Certification.findById(req.params.id);
 
-    if (!project) {
+    if (!certification) {
       return res.status(404).json({
         success: false,
-        message: "Project not found",
+        message: "Certification not found",
       });
     }
 
     const profile = await Profile.findOne({ user: req.user._id });
 
-    if (!profile || project.profile.toString() !== profile._id.toString()) {
+    if (
+      !profile ||
+      certification.profile.toString() !== profile._id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    await project.deleteOne();
+    await certification.deleteOne();
 
     res.status(200).json({
       success: true,
-      message: "Project deleted successfully",
+      message: "Certification deleted successfully",
     });
   } catch (err) {
     res.status(500).json({
@@ -170,8 +176,8 @@ const deleteProject = async (req, res) => {
 };
 
 module.exports = {
-  createProject,
-  getProjects,
-  updateProject,
-  deleteProject,
+  createCertification,
+  getCertifications,
+  updateCertification,
+  deleteCertification,
 };

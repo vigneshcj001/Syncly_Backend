@@ -157,6 +157,23 @@ const ProfileSchema = new Schema(
       enum: ["active", "suspended", "deactivated"],
       default: "active",
     },
+    projects: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Project",
+      },
+    ],
+    experience: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Experience",
+      },
+    ],
+    education: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Education",
+      },]
   },
   {
     timestamps: true,

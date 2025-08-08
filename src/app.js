@@ -4,6 +4,7 @@ const authRouter = require("./routes/authRoutes");
 const profileRouter = require("./routes/profileRoutes");
 const requestRouter = require("./routes/requestRouter");
 const networkRouter = require("./routes/networkRouter");
+const portfolioRouter =require("./routes/portfolioRouter")
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
@@ -26,6 +27,7 @@ app.use("/api/auth", authRouter);
 app.use("/api", profileRouter);
 app.use("/api", requestRouter);
 app.use("/api", networkRouter);
+app.use("/api", portfolioRouter);
 
 
 // Connect to MongoDB and start the server

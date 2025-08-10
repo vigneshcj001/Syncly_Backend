@@ -1,6 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const { userAuth } = require("../middleware/auth");
+const { userAuth } = require("../Middleware/auth");
 const Swipe = require("../models/swipe");
 const User = require("../models/user");
 

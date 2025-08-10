@@ -1,6 +1,6 @@
 const express = require("express");
 const networkRouter = express.Router();
-const { userAuth } = require("../middleware/auth");
+const { userAuth } = require("../Middleware/auth");
 const Swipe = require("../models/swipe");
 const Profile = require("../models/profile");
 

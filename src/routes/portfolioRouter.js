@@ -1,6 +1,6 @@
 const express = require("express");
 const portfolioRouter = express.Router();
-const { userAuth } = require("../middleware/auth");
+const { userAuth } = require("../Middleware/auth");
 
 const {
   createProject,

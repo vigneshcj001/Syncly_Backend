@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const { userAuth } = require("../Middleware/auth");
 const Swipe = require("../models/swipe");
 const User = require("../models/user");
-
+const SendEmail = require("../utils/SendEmail")
 const requestRouter = express.Router();
 
 // ------------------ CREATE SWIPE REQUEST ------------------
@@ -61,12 +61,19 @@ requestRouter.post(
       });
 
       const data = await newSwipeRequest.save();
+      const emailRes = await SendEmail.run(
+        `New ${connectionStatus} Request`,
+        `You have received a '${connectionStatus}' from ${req.user.userName}.`,
+        recipient.emailID
+      );
+      console.log("Recipient email:", recipient.emailID);
       return res.status(201).json({
         success: true,
         message: `Your '${connectionStatus}' status for ${recipient.userName} has been recorded.`,
         match: false,
         data,
       });
+
     } catch (err) {
       console.error("Swipe Request Error:", err);
       res

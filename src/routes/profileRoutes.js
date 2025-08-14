@@ -31,6 +31,7 @@ profileRouter.get("/profile/view", userAuth, async (req, res) => {
   }
 });
 
+
 // UPDATE Profile of logged-in user
 profileRouter.put("/profile/edit", userAuth, async (req, res) => {
   try {

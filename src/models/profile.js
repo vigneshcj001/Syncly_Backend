@@ -73,6 +73,10 @@ const ProfileSchema = new Schema(
       enum: ["mentor", "learner", "both"],
       default: "learner",
     },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
     socialLinks: {
       portfolio: {
         type: String,
@@ -173,7 +177,8 @@ const ProfileSchema = new Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Education",
-      },]
+      },
+    ],
   },
   {
     timestamps: true,

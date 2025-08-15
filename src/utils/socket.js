@@ -13,8 +13,10 @@ const getSecretRoomId = (userID, targetUserID) => {
 const initializeSocket = (server) => {
   const io = socket(server, {
     cors: {
-      origin: "http://localhost:5173",
+      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      credentials: true,
     },
+    path: "/api/socket.io", // 👈 matches frontend
   });
 
   io.on("connection", (socket) => {

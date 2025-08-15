@@ -7,14 +7,6 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    userName: {
-      type: String,
-      required: true,
-    },
-    avatar: {
-      type: String,
-      required: true,
-    },
     text: {
       type: String,
       required: true,

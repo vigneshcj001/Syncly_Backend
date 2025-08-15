@@ -1,39 +1,42 @@
 const socket = require("socket.io");
 const crypto = require("crypto");
 
-const getSecretRoomID = (userID, targetUserID) => {
+const getSecretRoomId = (userID, targetUserID) => {
   return crypto
     .createHash("sha256")
-    .update([userID, targetUserID].sort().join("_#$@"))
+    .update([String(userID), String(targetUserID)].sort().join("$"))
     .digest("hex");
 };
-const initializeSocket = (server) => {
-  const io = socket(server, {
-    cors: { origin: "http://localhost:5173" },
-  });
 
-  io.on("connection", (socket) => {
-    console.log("New client connected:", socket.id);
 
-    socket.on("joinChat", ({ userName, avatar, userID, targetUserID }) => {
-      const roomId = getSecretRoomID(userID, targetUserID);
-      console.log(`${userName} joined room ${roomId}`);
-      socket.join(roomId);
+const initializeSocket = (server)=>{
+    const io = socket(server, {
+      cors: {
+        origin: "http://localhost:5173",
+      },
     });
 
-    socket.on(
-      "sendMessage",
-      ({ userName, avatar, userID, targetUserID, text }) => {
-        const roomId = getSecretRoomID(userID,targetUserID);
-        console.log(`${userName}: ${text}`);
-        io.to(roomId).emit("messageReceived", { userName, avatar, text });
-      }
-    );
+    io.on("connection",(socket)=>{
+       socket.on("joinChat", ({ userName, avatar, userID, targetUserID }) => {
+         const roomId = getSecretRoomId(userID, targetUserID);
+         console.log(`${userName} joined room ${roomId}`);
+         socket.join(roomId);
+       });
 
-    socket.on("disconnect", () => {
-      console.log("Client disconnected:", socket.id);
+       socket.on(
+         "sendMessage",
+         ({ userName, avatar, userID, targetUserID, text }) => {
+           const roomId = getSecretRoomId(userID, targetUserID);
+           console.log(`[${roomId}] ${userName}: ${text}`);
+           io.to(roomId).emit("messageReceived", { userName, avatar, text });
+         }
+       );
+
+
+        socket.on("disconnect", () => {});
+
     });
-  });
+
 };
-
 module.exports = initializeSocket;
+
